@@ -2,41 +2,50 @@
   <div class="settings">
     <ul>
       <li>
-        <span>Scroll Sensitivity</span>
+        <span>{{ $t('setting.scroll') }}</span>
         <label class="slider">
-          <input type="range" min="5" max="100" v-model="scroll" />
+          <input type="range" min="1" max="100" v-model="scroll" />
         </label>
       </li>
       <li>
-        <span>Invert Scroll</span>
+        <span>{{ $t('setting.scroll_invert') }}</span>
         <label class="switch">
           <input type="checkbox" v-model="scroll_invert" />
           <span />
         </label>
       </li>
       <li>
-        <span>Autoplay Video</span>
+        <span>{{ $t('setting.autoplay') }}</span>
         <label class="switch">
           <input type="checkbox" v-model="autoplay" />
           <span />
         </label>
       </li>
       <li>
-        <span>Ignore Emotes</span>
+        <span>{{ $t('setting.ignore_emotes') }}</span>
         <label class="switch">
           <input type="checkbox" v-model="ignore_emotes" />
           <span />
         </label>
       </li>
       <li>
-        <span>Play Chat Sound</span>
+        <span>{{ $t('setting.chat_sound') }}</span>
         <label class="switch">
           <input type="checkbox" v-model="chat_sound" />
           <span />
         </label>
       </li>
+      <li>
+        <span>{{ $t('setting.keyboard_layout') }}</span>
+        <label class="select">
+          <select v-model="keyboard_layout">
+            <option v-for="(name, code) in keyboard_layouts_list" :key="code" :value="code">{{ name }}</option>
+          </select>
+          <span />
+        </label>
+      </li>
       <li v-if="connected">
-        <button @click.stop.prevent="logout">Logout</button>
+        <button @click.stop.prevent="logout">{{ $t('logout') }}</button>
       </li>
     </ul>
   </div>
@@ -182,6 +191,44 @@
             }
           }
         }
+
+        .select {
+          max-width: 120px;
+          text-align: right;
+
+          select:hover {
+            border: 1px solid $background-secondary;
+          }
+
+          select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            display: block;
+            width: 100%;
+            max-width: 100%;
+            height: 30px;
+            text-align: right;
+            padding: 0 5px 0 10px;
+            margin: 0;
+            line-height: 30px;
+            font-weight: bold;
+            font-size: 12px;
+            text-overflow: ellipsis;
+            border: 1px solid transparent;
+            border-radius: 5px;
+            color: white;
+            background-color: $background-tertiary;
+            font-weight: lighter;
+            cursor: pointer;
+
+            option {
+              font-weight: normal;
+              color: $text-normal;
+              background-color: $background-tertiary;
+            }
+          }
+        }
       }
     }
   }
@@ -234,6 +281,19 @@
 
     set chat_sound(value: boolean) {
       this.$accessor.settings.setSound(value)
+    }
+
+    get keyboard_layouts_list() {
+      return this.$accessor.settings.keyboard_layouts_list
+    }
+
+    get keyboard_layout() {
+      return this.$accessor.settings.keyboard_layout
+    }
+
+    set keyboard_layout(value: string) {
+      this.$accessor.settings.setKeyboardLayout(value)
+      this.$accessor.remote.changeKeyboard()
     }
 
     logout() {

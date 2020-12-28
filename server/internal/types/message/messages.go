@@ -14,15 +14,17 @@ type Disconnect struct {
 }
 
 type SignalProvide struct {
-	Event string `json:"event"`
-	ID    string `json:"id"`
-	SDP   string `json:"sdp"`
+	Event string   `json:"event"`
+	ID    string   `json:"id"`
+	SDP   string   `json:"sdp"`
+	Lite  bool     `json:"lite"`
+	ICE   []string `json:"ice"`
 }
 
 type SignalAnswer struct {
-	Event    string `json:"event"`
-	Username string `json:"username"`
-	SDP      string `json:"sdp"`
+	Event       string `json:"event"`
+	DisplayName string `json:"displayname"`
+	SDP         string `json:"sdp"`
 }
 
 type MembersList struct {
@@ -44,6 +46,11 @@ type Clipboard struct {
 	Text  string `json:"text"`
 }
 
+type Keyboard struct {
+	Event  string `json:"event"`
+	Layout string `json:"layout"`
+}
+
 type Control struct {
 	Event string `json:"event"`
 	ID    string `json:"id"`
@@ -55,7 +62,7 @@ type ControlTarget struct {
 	Target string `json:"target"`
 }
 
-type ChatRecieve struct {
+type ChatReceive struct {
 	Event   string `json:"event"`
 	Content string `json:"content"`
 }
@@ -66,7 +73,7 @@ type ChatSend struct {
 	Content string `json:"content"`
 }
 
-type EmoteRecieve struct {
+type EmoteReceive struct {
 	Event string `json:"event"`
 	Emote string `json:"emote"`
 }

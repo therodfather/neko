@@ -7,7 +7,7 @@ import (
 )
 
 func (h *MessageHandler) signalProvide(id string, session types.Session) error {
-	sdp, err := h.webrtc.CreatePeer(id, session)
+	sdp, lite, ice, err := h.webrtc.CreatePeer(id, session)
 	if err != nil {
 		return err
 	}
@@ -16,6 +16,8 @@ func (h *MessageHandler) signalProvide(id string, session types.Session) error {
 		Event: event.SIGNAL_PROVIDE,
 		ID:    id,
 		SDP:   sdp,
+		Lite:  lite,
+		ICE:   ice,
 	}); err != nil {
 		return err
 	}
@@ -24,11 +26,11 @@ func (h *MessageHandler) signalProvide(id string, session types.Session) error {
 }
 
 func (h *MessageHandler) signalAnswer(id string, session types.Session, payload *message.SignalAnswer) error {
-	if err := session.SetName(payload.Username); err != nil {
+	if err := session.SetName(payload.DisplayName); err != nil {
 		return err
 	}
 
-	if err := session.SignalAnwser(payload.SDP); err != nil {
+	if err := session.SignalAnswer(payload.SDP); err != nil {
 		return err
 	}
 

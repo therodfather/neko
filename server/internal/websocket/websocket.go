@@ -14,16 +14,16 @@ import (
 	"n.eko.moe/neko/internal/types/event"
 	"n.eko.moe/neko/internal/types/message"
 	"n.eko.moe/neko/internal/utils"
-	"n.eko.moe/neko/internal/xorg"
 )
 
-func New(sessions types.SessionManager, webrtc types.WebRTCManager, conf *config.WebSocket) *WebSocketHandler {
+func New(sessions types.SessionManager, remote types.RemoteManager, webrtc types.WebRTCManager, conf *config.WebSocket) *WebSocketHandler {
 	logger := log.With().Str("module", "websocket").Logger()
 
 	return &WebSocketHandler{
 		logger:   logger,
 		conf:     conf,
 		sessions: sessions,
+		remote:   remote,
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
 				return true
@@ -31,6 +31,7 @@ func New(sessions types.SessionManager, webrtc types.WebRTCManager, conf *config
 		},
 		handler: &MessageHandler{
 			logger:   logger.With().Str("subsystem", "handler").Logger(),
+			remote:   remote,
 			sessions: sessions,
 			webrtc:   webrtc,
 			banned:   make(map[string]bool),
@@ -46,6 +47,7 @@ type WebSocketHandler struct {
 	logger   zerolog.Logger
 	upgrader websocket.Upgrader
 	sessions types.SessionManager
+	remote   types.RemoteManager
 	conf     *config.WebSocket
 	handler  *MessageHandler
 	shutdown chan bool
@@ -68,7 +70,7 @@ func (ws *WebSocketHandler) Start() error {
 		}
 	})
 
-	ws.sessions.OnDestroy(func(id string) {
+	ws.sessions.OnDestroy(func(id string, session types.Session) {
 		if err := ws.handler.SessionDestroyed(id); err != nil {
 			ws.logger.Warn().Str("id", id).Err(err).Msg("session destroyed with and error")
 		} else {
@@ -81,7 +83,7 @@ func (ws *WebSocketHandler) Start() error {
 			ws.logger.Info().Msg("shutdown")
 		}()
 
-		current := xorg.ReadClipboard()
+		current := ws.remote.ReadClipboard()
 
 		for {
 			select {
@@ -89,7 +91,7 @@ func (ws *WebSocketHandler) Start() error {
 				return
 			default:
 				if ws.sessions.HasHost() {
-					text := xorg.ReadClipboard()
+					text := ws.remote.ReadClipboard()
 					if text != current {
 						session, ok := ws.sessions.GetHost()
 						if ok {
@@ -123,13 +125,13 @@ func (ws *WebSocketHandler) Upgrade(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	id, admin, err := ws.authenticate(r)
+	id, ip, admin, err := ws.authenticate(r)
 	if err != nil {
-		ws.logger.Warn().Err(err).Msg("authenticatetion failed")
+		ws.logger.Warn().Err(err).Msg("authentication failed")
 
 		if err = connection.WriteJSON(message.Disconnect{
 			Event:   event.SYSTEM_DISCONNECT,
-			Message: "invalid password",
+			Message: "invalid_password",
 		}); err != nil {
 			ws.logger.Error().Err(err).Msg("failed to send disconnect")
 		}
@@ -143,6 +145,7 @@ func (ws *WebSocketHandler) Upgrade(w http.ResponseWriter, r *http.Request) erro
 	socket := &WebSocket{
 		id:         id,
 		ws:         ws,
+		address:    ip,
 		connection: connection,
 	}
 
@@ -187,26 +190,32 @@ func (ws *WebSocketHandler) Upgrade(w http.ResponseWriter, r *http.Request) erro
 	return nil
 }
 
-func (ws *WebSocketHandler) authenticate(r *http.Request) (string, bool, error) {
+func (ws *WebSocketHandler) authenticate(r *http.Request) (string, string, bool, error) {
+	ip := r.RemoteAddr
+
+	if ws.conf.Proxy {
+		ip = utils.ReadUserIP(r)
+	}
+
 	id, err := utils.NewUID(32)
 	if err != nil {
-		return "", false, err
+		return "", ip, false, err
 	}
 
 	passwords, ok := r.URL.Query()["password"]
 	if !ok || len(passwords[0]) < 1 {
-		return "", false, fmt.Errorf("no password provided")
+		return "", ip, false, fmt.Errorf("no password provided")
 	}
 
 	if passwords[0] == ws.conf.AdminPassword {
-		return id, true, nil
+		return id, ip, true, nil
 	}
 
 	if passwords[0] == ws.conf.Password {
-		return id, false, nil
+		return id, ip, false, nil
 	}
 
-	return "", false, fmt.Errorf("invalid password: %s", passwords[0])
+	return "", ip, false, fmt.Errorf("invalid password: %s", passwords[0])
 }
 
 func (ws *WebSocketHandler) handle(connection *websocket.Conn, id string) {
@@ -243,7 +252,7 @@ func (ws *WebSocketHandler) handle(connection *websocket.Conn, id string) {
 				Str("session", id).
 				Str("address", connection.RemoteAddr().String()).
 				Str("raw", string(raw)).
-				Msg("recieved message from client")
+				Msg("received message from client")
 			if err := ws.handler.Message(id, raw); err != nil {
 				ws.logger.Error().Err(err).Msg("message handler has failed")
 			}

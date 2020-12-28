@@ -10,6 +10,7 @@ import Axios from './plugins/axios'
 import Swal from './plugins/swal'
 import Anime from './plugins/anime'
 
+import { i18n } from './plugins/i18n'
 import store from './store'
 import app from './app.vue'
 
@@ -24,8 +25,9 @@ Vue.use(Anime)
 Vue.use(Client)
 
 new Vue({
+  i18n,
   store,
-  render: h => h(app),
+  render: (h) => h(app),
   created() {
     const click = () => {
       this.$accessor.setActive()

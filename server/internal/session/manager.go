@@ -11,10 +11,11 @@ import (
 	"n.eko.moe/neko/internal/utils"
 )
 
-func New() *SessionManager {
+func New(remote types.RemoteManager) *SessionManager {
 	return &SessionManager{
 		logger:  log.With().Str("module", "session").Logger(),
 		host:    "",
+		remote:  remote,
 		members: make(map[string]*Session),
 		emmiter: events.New(),
 	}
@@ -23,11 +24,12 @@ func New() *SessionManager {
 type SessionManager struct {
 	logger  zerolog.Logger
 	host    string
+	remote  types.RemoteManager
 	members map[string]*Session
 	emmiter events.EventEmmiter
 }
 
-func (manager *SessionManager) New(id string, admin bool, socket types.WebScoket) types.Session {
+func (manager *SessionManager) New(id string, admin bool, socket types.WebSocket) types.Session {
 	session := &Session{
 		id:        id,
 		admin:     admin,
@@ -39,6 +41,10 @@ func (manager *SessionManager) New(id string, admin bool, socket types.WebScoket
 
 	manager.members[id] = session
 	manager.emmiter.Emit("created", id, session)
+
+	if manager.remote.Streaming() != true && len(manager.members) > 0 {
+		manager.remote.StartStream()
+	}
 
 	return session
 }
@@ -82,6 +88,21 @@ func (manager *SessionManager) Get(id string) (types.Session, bool) {
 	return session, ok
 }
 
+func (manager *SessionManager) Admins() []*types.Member {
+	members := []*types.Member{}
+	for _, session := range manager.members {
+		if !session.connected || !session.admin {
+			continue
+		}
+
+		member := session.Member()
+		if member != nil {
+			members = append(members, member)
+		}
+	}
+	return members
+}
+
 func (manager *SessionManager) Members() []*types.Member {
 	members := []*types.Member{}
 	for _, session := range manager.members {
@@ -102,9 +123,15 @@ func (manager *SessionManager) Destroy(id string) error {
 	if ok {
 		err := session.destroy()
 		delete(manager.members, id)
-		manager.emmiter.Emit("destroyed", id)
+
+		if manager.remote.Streaming() != false && len(manager.members) <= 0 {
+			manager.remote.StopStream()
+		}
+
+		manager.emmiter.Emit("destroyed", id, session)
 		return err
 	}
+
 	return nil
 }
 
@@ -112,7 +139,7 @@ func (manager *SessionManager) Clear() error {
 	return nil
 }
 
-func (manager *SessionManager) Brodcast(v interface{}, exclude interface{}) error {
+func (manager *SessionManager) Broadcast(v interface{}, exclude interface{}) error {
 	for id, session := range manager.members {
 		if !session.connected {
 			continue
@@ -143,9 +170,9 @@ func (manager *SessionManager) OnHostCleared(listener func(id string)) {
 	})
 }
 
-func (manager *SessionManager) OnDestroy(listener func(id string)) {
+func (manager *SessionManager) OnDestroy(listener func(id string, session types.Session)) {
 	manager.emmiter.On("destroyed", func(payload ...interface{}) {
-		listener(payload[0].(string))
+		listener(payload[0].(string), payload[1].(*Session))
 	})
 }
 

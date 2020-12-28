@@ -7,6 +7,7 @@ import (
 	"runtime"
 
 	"n.eko.moe/neko/internal/http"
+	"n.eko.moe/neko/internal/remote"
 	"n.eko.moe/neko/internal/session"
 	"n.eko.moe/neko/internal/types/config"
 	"n.eko.moe/neko/internal/webrtc"
@@ -17,7 +18,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const Header = `&34
+const Header = `&34 
     _   __     __
    / | / /__  / /______   \    /\
   /  |/ / _ \/ //_/ __ \   )  ( ')
@@ -35,9 +36,9 @@ var (
 	gitBranch = "dev"
 
 	// Major version when you make incompatible API changes,
-	major = "1"
+	major = "2"
 	// Minor version when you add functionality in a backwards-compatible manner, and
-	minor = "1"
+	minor = "0"
 	// Patch version when you make backwards-compatible bug fixeneko.
 	patch = "0"
 )
@@ -59,6 +60,7 @@ func init() {
 		},
 		Root:      &config.Root{},
 		Server:    &config.Server{},
+		Remote:    &config.Remote{},
 		WebRTC:    &config.WebRTC{},
 		WebSocket: &config.WebSocket{},
 	}
@@ -83,7 +85,7 @@ func (i *Version) String() string {
 func (i *Version) Details() string {
 	return fmt.Sprintf(
 		"%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
-		fmt.Sprintf("Verison %s.%s.%s", i.Major, i.Minor, i.Patch),
+		fmt.Sprintf("Version %s.%s.%s", i.Major, i.Minor, i.Patch),
 		fmt.Sprintf("GitCommit %s", i.GitCommit),
 		fmt.Sprintf("GitBranch %s", i.GitBranch),
 		fmt.Sprintf("BuildDate %s", i.BuildDate),
@@ -96,13 +98,15 @@ func (i *Version) Details() string {
 type Neko struct {
 	Version   *Version
 	Root      *config.Root
+	Remote    *config.Remote
 	Server    *config.Server
 	WebRTC    *config.WebRTC
 	WebSocket *config.WebSocket
 
 	logger           zerolog.Logger
 	server           *http.Server
-	sessions         *session.SessionManager
+	sessionManager   *session.SessionManager
+	remoteManager    *remote.RemoteManager
 	webRTCManager    *webrtc.WebRTCManager
 	webSocketHandler *websocket.WebSocketHandler
 }
@@ -112,24 +116,35 @@ func (neko *Neko) Preflight() {
 }
 
 func (neko *Neko) Start() {
-	sessions := session.New()
 
-	webRTCManager := webrtc.New(sessions, neko.WebRTC)
+	remoteManager := remote.New(neko.Remote)
+	remoteManager.Start()
+
+	sessionManager := session.New(remoteManager)
+
+	webRTCManager := webrtc.New(sessionManager, remoteManager, neko.WebRTC)
 	webRTCManager.Start()
 
-	webSocketHandler := websocket.New(sessions, webRTCManager, neko.WebSocket)
+	webSocketHandler := websocket.New(sessionManager, remoteManager, webRTCManager, neko.WebSocket)
 	webSocketHandler.Start()
 
 	server := http.New(neko.Server, webSocketHandler)
 	server.Start()
 
-	neko.sessions = sessions
+	neko.sessionManager = sessionManager
+	neko.remoteManager = remoteManager
 	neko.webRTCManager = webRTCManager
 	neko.webSocketHandler = webSocketHandler
 	neko.server = server
 }
 
 func (neko *Neko) Shutdown() {
+	if err := neko.remoteManager.Shutdown(); err != nil {
+		neko.logger.Err(err).Msg("remote manager shutdown with an error")
+	} else {
+		neko.logger.Debug().Msg("remote manager shutdown")
+	}
+
 	if err := neko.webRTCManager.Shutdown(); err != nil {
 		neko.logger.Err(err).Msg("webrtc manager shutdown with an error")
 	} else {

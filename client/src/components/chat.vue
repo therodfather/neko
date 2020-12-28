@@ -4,11 +4,11 @@
       <template v-for="(message, index) in history">
         <li :key="index" class="message" v-if="message.type === 'text'">
           <div class="author" @contextmenu.stop.prevent="onContext($event, { member: member(message.id) })">
-            <img :src="`https://api.adorable.io/avatars/40/${member(message.id).username}.png`" />
+            <img :src="`https://ui-avatars.com/api/?name=${member(message.id).displayname}.png&size=40`" />
           </div>
           <div class="content">
             <div class="content-head">
-              <span>{{ member(message.id).username }}</span>
+              <span>{{ member(message.id).displayname }}</span>
               <span class="timestamp">{{ timestamp(message.created) }}</span>
             </div>
             <neko-markdown class="content-body" :source="message.content" />
@@ -24,8 +24,8 @@
               boundariesElement: 'body',
             }"
           >
-            <strong v-if="message.id === id">You</strong>
-            <strong v-else>{{ member(message.id).username }}</strong>
+            <strong v-if="message.id === id">{{ $t('you') }}</strong>
+            <strong v-else>{{ member(message.id).displayname }}</strong>
             {{ message.content }}
           </div>
         </li>
@@ -35,7 +35,7 @@
     <div v-if="!muted" class="chat-send">
       <div class="accent" />
       <div class="text-container">
-        <textarea ref="input" placeholder="Send a message" @keydown="onKeyDown" v-model="content" />
+        <textarea ref="input" :placeholder="$t('send_a_message')" @keydown="onKeyDown" v-model="content" />
         <neko-emoji v-if="emoji" @picked="onEmojiPicked" @done="emoji = false" />
         <i class="emoji-menu fas fa-laugh" @click.stop.prevent="onEmoji"></i>
       </div>

@@ -20,8 +20,6 @@
           @mouseup.stop.prevent="onMouseUp"
           @mouseenter.stop.prevent="onMouseEnter"
           @mouseleave.stop.prevent="onMouseLeave"
-          @keydown.stop.prevent="onKeyDown"
-          @keyup.stop.prevent="onKeyUp"
         />
         <div v-if="!playing" class="player-overlay">
           <i @click.stop.prevent="toggle" v-if="playable" class="fas fa-play-circle" />
@@ -31,6 +29,12 @@
       <ul v-if="!fullscreen" class="video-menu">
         <li><i @click.stop.prevent="requestFullscreen" class="fas fa-expand"></i></li>
         <li v-if="admin"><i @click.stop.prevent="onResolution" class="fas fa-desktop"></i></li>
+        <li class="request-control">
+          <i
+            :class="[hosted && !hosting ? 'disabled' : '', !hosted && !hosting ? 'faded' : '', 'fas', 'fa-keyboard']"
+            @click.stop.prevent="toggleControl"
+          />
+        </li>
       </ul>
       <neko-resolution ref="resolution" />
     </div>
@@ -66,6 +70,24 @@
             text-align: center;
             color: rgba($color: #fff, $alpha: 0.6);
             cursor: pointer;
+
+            &.faded {
+              color: rgba($color: $text-normal, $alpha: 0.4);
+            }
+
+            &.disabled {
+              color: rgba($color: $style-error, $alpha: 0.4);
+            }
+          }
+
+          &.request-control {
+            display: none;
+          }
+
+          @media (max-width: 768px) {
+            &.request-control {
+              display: inline-block;
+            }
           }
         }
       }
@@ -142,6 +164,8 @@
   import Emote from './emote.vue'
   import Resolution from './resolution.vue'
 
+  import GuacamoleKeyboard from '~/utils/guacamole-keyboard.ts'
+
   @Component({
     name: 'neko-video',
     components: {
@@ -158,6 +182,7 @@
     @Ref('video') readonly _video!: HTMLVideoElement
     @Ref('resolution') readonly _resolution!: any
 
+    private keyboard = GuacamoleKeyboard()
     private observer = new ResizeObserver(this.onResise.bind(this))
     private focused = false
     private fullscreen = false
@@ -176,6 +201,10 @@
 
     get hosting() {
       return this.$accessor.remote.hosting
+    }
+
+    get hosted() {
+      return this.$accessor.remote.hosted
     }
 
     get volume() {
@@ -327,18 +356,39 @@
         this.$accessor.video.setPlayable(false)
       })
 
-      this._video.addEventListener('error', event => {
+      this._video.addEventListener('error', (event) => {
         this.$log.error(event.error)
         this.$accessor.video.setPlayable(false)
       })
 
       document.addEventListener('focusin', this.onFocus.bind(this))
+      document.addEventListener('focusout', this.onBlur.bind(this))
+
+      /* Initialize Guacamole Keyboard */
+      this.keyboard.onkeydown = (key: number) => {
+        if (!this.focused || !this.hosting || this.locked) {
+          return true
+        }
+
+        this.$client.sendData('keydown', { key })
+        return false
+      }
+      this.keyboard.onkeyup = (key: number) => {
+        if (!this.focused || !this.hosting || this.locked) {
+          return
+        }
+
+        this.$client.sendData('keyup', { key })
+      }
+      this.keyboard.listenTo(this._overlay)
     }
 
     beforeDestroy() {
       this.observer.disconnect()
       this.$accessor.video.setPlayable(false)
       document.removeEventListener('focusin', this.onFocus.bind(this))
+      document.removeEventListener('focusout', this.onBlur.bind(this))
+      /* Guacamole Keyboard does not provide destroy functions */
     }
 
     play() {
@@ -352,7 +402,7 @@
           .then(() => {
             this.onResise()
           })
-          .catch(err => this.$log.error)
+          .catch((err) => this.$log.error)
       } catch (err) {
         this.$log.error(err)
       }
@@ -378,6 +428,14 @@
       }
     }
 
+    toggleControl() {
+      if (!this.playable) {
+        return
+      }
+
+      this.$accessor.remote.toggle()
+    }
+
     requestFullscreen() {
       this._player.requestFullscreen()
       this.onResise()
@@ -391,7 +449,7 @@
       if (this.hosting && navigator.clipboard && typeof navigator.clipboard.readText === 'function') {
         navigator.clipboard
           .readText()
-          .then(text => {
+          .then((text) => {
             if (this.clipboard !== text) {
               this.$accessor.remote.setClipboard(text)
               this.$accessor.remote.sendClipboard(text)
@@ -399,6 +457,14 @@
           })
           .catch(this.$log.error)
       }
+    }
+
+    onBlur() {
+      if (!this.focused || !this.hosting || this.locked) {
+        return
+      }
+
+      this.keyboard.reset()
     }
 
     onMousePos(e: MouseEvent) {
@@ -435,7 +501,7 @@
         return
       }
       this.onMousePos(e)
-      this.$client.sendData('mousedown', { key: e.button })
+      this.$client.sendData('mousedown', { key: e.button + 1 })
     }
 
     onMouseUp(e: MouseEvent) {
@@ -443,7 +509,7 @@
         return
       }
       this.onMousePos(e)
-      this.$client.sendData('mouseup', { key: e.button })
+      this.$client.sendData('mouseup', { key: e.button + 1 })
     }
 
     onMouseMove(e: MouseEvent) {
@@ -461,20 +527,6 @@
 
     onMouseLeave(e: MouseEvent) {
       this.focused = false
-    }
-
-    onKeyDown(e: KeyboardEvent) {
-      if (!this.focused || !this.hosting || this.locked) {
-        return
-      }
-      this.$client.sendData('keydown', { key: e.keyCode })
-    }
-
-    onKeyUp(e: KeyboardEvent) {
-      if (!this.focused || !this.hosting || this.locked) {
-        return
-      }
-      this.$client.sendData('keyup', { key: e.keyCode })
     }
 
     onResise() {

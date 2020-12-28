@@ -6,11 +6,11 @@
         <span><b>n</b>.eko</span>
       </div>
       <form class="message" v-if="!connecting" @submit.stop.prevent="connect">
-        <span>Please Login</span>
-        <input type="text" placeholder="Username" v-model="username" />
-        <input type="password" placeholder="Password" v-model="password" />
+        <span>{{ $t('connect.title') }}</span>
+        <input type="text" :placeholder="$t('connect.displayname')" v-model="displayname" />
+        <input type="password" :placeholder="$t('connect.password')" v-model="password" />
         <button type="submit" @click.stop.prevent="login">
-          Connect
+          {{ $t('connect.connect') }}
         </button>
       </form>
       <div class="loader" v-if="connecting">
@@ -150,12 +150,12 @@
 
   @Component({ name: 'neko-connect' })
   export default class extends Vue {
-    private username = ''
+    private displayname = ''
     private password = ''
 
     mounted() {
-      if (this.$accessor.username !== '' && this.$accessor.password !== '') {
-        this.$accessor.login({ username: this.$accessor.username, password: this.$accessor.password })
+      if (this.$accessor.displayname !== '' && this.$accessor.password !== '') {
+        this.$accessor.login({ displayname: this.$accessor.displayname, password: this.$accessor.password })
       }
     }
 
@@ -164,7 +164,7 @@
     }
 
     login() {
-      this.$accessor.login({ username: this.username, password: this.password })
+      this.$accessor.login({ displayname: this.displayname, password: this.password })
     }
   }
 </script>

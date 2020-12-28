@@ -16,8 +16,8 @@ export type WebSocketMessages =
   | SignalProvideMessage
   | SignalAnswerMessage
   | MemberListMessage
-  | MembeConnectMessage
-  | MembeDisconnectMessage
+  | MemberConnectMessage
+  | MemberDisconnectMessage
   | ControlMessage
   | ScreenResolutionMessage
   | ScreenConfigurationsMessage
@@ -30,6 +30,7 @@ export type WebSocketPayloads =
   | Member
   | ControlPayload
   | ControlClipboardPayload
+  | ControlKeyboardPayload
   | ChatPayload
   | ChatSendPayload
   | EmojiSendPayload
@@ -61,6 +62,8 @@ export interface SignalProvideMessage extends WebSocketMessage, SignalProvidePay
 }
 export interface SignalProvidePayload {
   id: string
+  lite: boolean
+  ice: string[]
   sdp: string
 }
 
@@ -70,7 +73,7 @@ export interface SignalAnswerMessage extends WebSocketMessage, SignalAnswerPaylo
 }
 export interface SignalAnswerPayload {
   sdp: string
-  username: string
+  displayname: string
 }
 
 /*
@@ -85,13 +88,13 @@ export interface MemberListPayload {
 }
 
 // member/connected
-export interface MembeConnectMessage extends WebSocketMessage, MemberPayload {
+export interface MemberConnectMessage extends WebSocketMessage, MemberPayload {
   event: typeof EVENT.MEMBER.CONNECTED
 }
 export type MemberPayload = Member
 
 // member/disconnected
-export interface MembeDisconnectMessage extends WebSocketMessage, MemberPayload {
+export interface MemberDisconnectMessage extends WebSocketMessage, MemberPayload {
   event: typeof EVENT.MEMBER.DISCONNECTED
 }
 export interface MemberDisconnectPayload {
@@ -116,6 +119,10 @@ export interface ControlTargetPayload {
 
 export interface ControlClipboardPayload {
   text: string
+}
+
+export interface ControlKeyboardPayload {
+  layout: string
 }
 
 /*

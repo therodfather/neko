@@ -16,7 +16,7 @@ export abstract class BaseClient extends EventEmitter<BaseEvents> {
   protected _peer?: RTCPeerConnection
   protected _channel?: RTCDataChannel
   protected _timeout?: NodeJS.Timeout
-  protected _username?: string
+  protected _displayname?: string
   protected _state: RTCIceConnectionState = 'disconnected'
   protected _id = ''
 
@@ -40,7 +40,7 @@ export abstract class BaseClient extends EventEmitter<BaseEvents> {
     return this.peerConnected && this.socketOpen
   }
 
-  public connect(url: string, password: string, username: string) {
+  public connect(url: string, password: string, displayname: string) {
     if (this.socketOpen) {
       this.emit('warn', `attempting to create websocket while connection open`)
       return
@@ -51,11 +51,11 @@ export abstract class BaseClient extends EventEmitter<BaseEvents> {
       return
     }
 
-    if (username === '') {
-      throw new Error('Must add a username') // TODO: Better handleing
+    if (displayname === '') {
+      throw new Error('Must add a displayname') // TODO: Better handling
     }
 
-    this._username = username
+    this._displayname = displayname
     this[EVENT.CONNECTING]()
 
     try {
@@ -90,7 +90,7 @@ export abstract class BaseClient extends EventEmitter<BaseEvents> {
     }
 
     this._state = 'disconnected'
-    this._username = undefined
+    this._displayname = undefined
     this._id = ''
   }
 
@@ -98,7 +98,7 @@ export abstract class BaseClient extends EventEmitter<BaseEvents> {
   public sendData(event: 'mousedown' | 'mouseup' | 'keydown' | 'keyup', data: { key: number }): void
   public sendData(event: string, data: any) {
     if (!this.connected) {
-      this.emit('warn', `attemping to send data while dissconneted`)
+      this.emit('warn', `attempting to send data while disconnected`)
       return
     }
 
@@ -123,19 +123,19 @@ export abstract class BaseClient extends EventEmitter<BaseEvents> {
         break
       case 'keydown':
       case 'mousedown':
-        buffer = new ArrayBuffer(5)
+        buffer = new ArrayBuffer(11)
         payload = new DataView(buffer)
         payload.setUint8(0, OPCODE.KEY_DOWN)
-        payload.setUint16(1, 1, true)
-        payload.setUint16(3, data.key, true)
+        payload.setUint16(1, 8, true)
+        payload.setBigUint64(3, BigInt(data.key), true)
         break
       case 'keyup':
       case 'mouseup':
-        buffer = new ArrayBuffer(5)
+        buffer = new ArrayBuffer(11)
         payload = new DataView(buffer)
         payload.setUint8(0, OPCODE.KEY_UP)
-        payload.setUint16(1, 1, true)
-        payload.setUint16(3, data.key, true)
+        payload.setUint16(1, 8, true)
+        payload.setBigUint64(3, BigInt(data.key), true)
         break
       default:
         this.emit('warn', `unknown data event: ${event}`)
@@ -149,14 +149,14 @@ export abstract class BaseClient extends EventEmitter<BaseEvents> {
 
   public sendMessage(event: WebSocketEvents, payload?: WebSocketPayloads) {
     if (!this.connected) {
-      this.emit('warn', `attemping to send message while dissconneted`)
+      this.emit('warn', `attempting to send message while disconnected`)
       return
     }
     this.emit('debug', `sending event '${event}' ${payload ? `with payload: ` : ''}`, payload)
     this._ws!.send(JSON.stringify({ event, ...payload }))
   }
 
-  public createPeer(sdp: string) {
+  public createPeer(sdp: string, lite: boolean, servers: string[]) {
     this.emit('debug', `creating peer`)
     if (!this.socketOpen) {
       this.emit(
@@ -173,19 +173,24 @@ export abstract class BaseClient extends EventEmitter<BaseEvents> {
     }
 
     this._peer = new RTCPeerConnection()
+    if (lite !== true) {
+      this._peer = new RTCPeerConnection({
+        iceServers: [{ urls: servers }],
+      })
+    }
 
     this._peer.onconnectionstatechange = event => {
-      this.emit('debug', `peer connection state chagned`, this._peer ? this._peer.connectionState : undefined)
+      this.emit('debug', `peer connection state changed`, this._peer ? this._peer.connectionState : undefined)
     }
 
     this._peer.onsignalingstatechange = event => {
-      this.emit('debug', `peer signaling state chagned`, this._peer ? this._peer.signalingState : undefined)
+      this.emit('debug', `peer signaling state changed`, this._peer ? this._peer.signalingState : undefined)
     }
 
     this._peer.oniceconnectionstatechange = event => {
       this._state = this._peer!.iceConnectionState
 
-      this.emit('debug', `peer ice connection state chagned: ${this._peer!.iceConnectionState}`)
+      this.emit('debug', `peer ice connection state changed: ${this._peer!.iceConnectionState}`)
 
       switch (this._state) {
         case 'checking':
@@ -223,7 +228,7 @@ export abstract class BaseClient extends EventEmitter<BaseEvents> {
           JSON.stringify({
             event: EVENT.SIGNAL.ANSWER,
             sdp: d.sdp,
-            username: this._username,
+            displayname: this._displayname,
           }),
         )
       })
@@ -236,9 +241,9 @@ export abstract class BaseClient extends EventEmitter<BaseEvents> {
     this.emit('debug', `received websocket event ${event} ${payload ? `with payload: ` : ''}`, payload)
 
     if (event === EVENT.SIGNAL.PROVIDE) {
-      const { sdp, id } = payload as SignalProvidePayload
+      const { sdp, lite, ice, id } = payload as SignalProvidePayload
       this._id = id
-      this.createPeer(sdp)
+      this.createPeer(sdp, lite, ice)
       return
     }
 
@@ -284,7 +289,7 @@ export abstract class BaseClient extends EventEmitter<BaseEvents> {
   }
 
   private onTimeout() {
-    this.emit('debug', `connection timedout`)
+    this.emit('debug', `connection timeout`)
     if (this._timeout) {
       clearTimeout(this._timeout)
     }

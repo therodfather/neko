@@ -3,44 +3,46 @@
     <template slot-scope="child" v-if="child.data">
       <li class="header">
         <div class="user">
-          <img :src="`https://api.adorable.io/avatars/25/${child.data.member.username}.png`" />
-          <strong>{{ child.data.member.username }}</strong>
+          <img :src="`https://ui-avatars.com/api/?name=${child.data.member.displayname}.png&size=25`" />
+          <strong>{{ child.data.member.displayname }}</strong>
         </div>
       </li>
       <li class="seperator" />
       <li>
-        <span @click="ignore(child.data.member)" v-if="!child.data.member.ignored">Ignore</span>
-        <span @click="unignore(child.data.member)" v-else>Unignore</span>
+        <span @click="ignore(child.data.member)" v-if="!child.data.member.ignored">{{ $t('context.ignore') }}</span>
+        <span @click="unignore(child.data.member)" v-else>{{ $t('context.unignore') }}</span>
       </li>
 
       <template v-if="admin">
         <li>
-          <span @click="mute(child.data.member)" v-if="!child.data.member.muted">Mute</span>
-          <span @click="unmute(child.data.member)" v-else>Unmute</span>
+          <span @click="mute(child.data.member)" v-if="!child.data.member.muted">{{ $t('context.mute') }}</span>
+          <span @click="unmute(child.data.member)" v-else>{{ $t('context.unmute') }}</span>
         </li>
         <li v-if="child.data.member.id === host">
-          <span @click="adminRelease(child.data.member)">Force Release Controls</span>
+          <span @click="adminRelease(child.data.member)">{{ $t('context.release') }}</span>
         </li>
         <li v-if="child.data.member.id === host">
-          <span @click="adminControl(child.data.member)">Force Take Controls</span>
+          <span @click="adminControl(child.data.member)">{{ $t('context.take') }}</span>
         </li>
         <li>
-          <span v-if="child.data.member.id !== host" @click="adminGive(child.data.member)">Give Controls</span>
+          <span v-if="child.data.member.id !== host" @click="adminGive(child.data.member)">{{
+            $t('context.give')
+          }}</span>
         </li>
       </template>
       <template v-else>
         <li v-if="hosting">
-          <span @click="give(child.data.member)">Give Controls</span>
+          <span @click="give(child.data.member)">{{ $t('context.give') }}</span>
         </li>
       </template>
 
-      <template v-if="admin">
+      <template v-if="admin && !child.data.member.admin">
         <li class="seperator" />
         <li>
-          <span @click="kick(child.data.member)" style="color: #f04747">Kick</span>
+          <span @click="kick(child.data.member)" style="color: #f04747;">{{ $t('context.kick') }}</span>
         </li>
         <li>
-          <span @click="ban(child.data.member)" style="color: #f04747">Ban IP</span>
+          <span @click="ban(child.data.member)" style="color: #f04747;">{{ $t('context.ban') }}</span>
         </li>
       </template>
     </template>
@@ -163,11 +165,12 @@
 
     kick(member: Member) {
       this.$swal({
-        title: `Kick ${member.username}?`,
-        text: `Are you sure you want to kick ${member.username}?`,
+        title: this.$t('context.confirm.kick_title', { name: member.displayname }) as string,
+        text: this.$t('context.confirm.kick_text', { name: member.displayname }) as string,
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Yes',
+        confirmButtonText: this.$t('context.confirm.button_yes') as string,
+        cancelButtonText: this.$t('context.confirm.button_cancel') as string,
       }).then(({ value }) => {
         if (value) {
           this.$accessor.user.kick(member)
@@ -177,11 +180,12 @@
 
     ban(member: Member) {
       this.$swal({
-        title: `Ban ${member.username}?`,
-        text: `Are you sure you want to ban ${member.username}? You will need to restart the server to undo this.`,
+        title: this.$t('context.confirm.ban_title', { name: member.displayname }) as string,
+        text: this.$t('context.confirm.ban_text', { name: member.displayname }) as string,
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Yes',
+        confirmButtonText: this.$t('context.confirm.button_yes') as string,
+        cancelButtonText: this.$t('context.confirm.button_cancel') as string,
       }).then(({ value }) => {
         if (value) {
           this.$accessor.user.ban(member)
@@ -191,11 +195,12 @@
 
     mute(member: Member) {
       this.$swal({
-        title: `Mute ${member.username}?`,
-        text: `Are you sure you want to mute ${member.username}?`,
+        title: this.$t('context.confirm.mute_title', { name: member.displayname }) as string,
+        text: this.$t('context.confirm.mute_text', { name: member.displayname }) as string,
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Yes',
+        confirmButtonText: this.$t('context.confirm.button_yes') as string,
+        cancelButtonText: this.$t('context.confirm.button_cancel') as string,
       }).then(({ value }) => {
         if (value) {
           this.$accessor.user.mute(member)
@@ -205,11 +210,12 @@
 
     unmute(member: Member) {
       this.$swal({
-        title: `Unmute ${member.username}?`,
-        text: `Are you sure you want to unmute ${member.username}?`,
+        title: this.$t('context.confirm.unmute_title', { name: member.displayname }) as string,
+        text: this.$t('context.confirm.unmute_text', { name: member.displayname }) as string,
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Yes',
+        confirmButtonText: this.$t('context.confirm.button_yes') as string,
+        cancelButtonText: this.$t('context.confirm.button_cancel') as string,
       }).then(({ value }) => {
         if (value) {
           this.$accessor.user.unmute(member)

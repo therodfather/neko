@@ -7,13 +7,17 @@ import (
 )
 
 type Peer struct {
-	id         string
-	manager    *WebRTCManager
-	connection *webrtc.PeerConnection
-	mu         sync.Mutex
+	id            string
+	api           *webrtc.API
+	engine        *webrtc.MediaEngine
+	manager       *WebRTCManager
+	settings      *webrtc.SettingEngine
+	connection    *webrtc.PeerConnection
+	configuration *webrtc.Configuration
+	mu            sync.Mutex
 }
 
-func (peer *Peer) SignalAnwser(sdp string) error {
+func (peer *Peer) SignalAnswer(sdp string) error {
 	return peer.connection.SetRemoteDescription(webrtc.SessionDescription{SDP: sdp, Type: webrtc.SDPTypeAnswer})
 }
 

@@ -2,7 +2,7 @@ package types
 
 type Member struct {
 	ID    string `json:"id"`
-	Name  string `json:"username"`
+	Name  string `json:"displayname"`
 	Admin bool   `json:"admin"`
 	Muted bool   `json:"muted"`
 }
@@ -17,17 +17,17 @@ type Session interface {
 	SetMuted(muted bool)
 	SetName(name string) error
 	SetConnected(connected bool) error
-	SetSocket(socket WebScoket) error
+	SetSocket(socket WebSocket) error
 	SetPeer(peer Peer) error
-	Address() *string
+	Address() string
 	Kick(message string) error
 	Write(v interface{}) error
 	Send(v interface{}) error
-	SignalAnwser(sdp string) error
+	SignalAnswer(sdp string) error
 }
 
 type SessionManager interface {
-	New(id string, admin bool, socket WebScoket) Session
+	New(id string, admin bool, socket WebSocket) Session
 	HasHost() bool
 	IsHost(id string) bool
 	SetHost(id string) error
@@ -36,12 +36,13 @@ type SessionManager interface {
 	Has(id string) bool
 	Get(id string) (Session, bool)
 	Members() []*Member
+	Admins() []*Member
 	Destroy(id string) error
 	Clear() error
-	Brodcast(v interface{}, exclude interface{}) error
+	Broadcast(v interface{}, exclude interface{}) error
 	OnHost(listener func(id string))
 	OnHostCleared(listener func(id string))
-	OnDestroy(listener func(id string))
+	OnDestroy(listener func(id string, session Session))
 	OnCreated(listener func(id string, session Session))
 	OnConnected(listener func(id string, session Session))
 }

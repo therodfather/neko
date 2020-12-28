@@ -4,7 +4,6 @@ import (
 	"n.eko.moe/neko/internal/types"
 	"n.eko.moe/neko/internal/types/event"
 	"n.eko.moe/neko/internal/types/message"
-	"n.eko.moe/neko/internal/xorg"
 )
 
 func (h *MessageHandler) controlRelease(id string, session types.Session) error {
@@ -20,12 +19,12 @@ func (h *MessageHandler) controlRelease(id string, session types.Session) error 
 	h.sessions.ClearHost()
 
 	// tell everyone
-	if err := h.sessions.Brodcast(
+	if err := h.sessions.Broadcast(
 		message.Control{
 			Event: event.CONTROL_RELEASE,
 			ID:    id,
 		}, nil); err != nil {
-		h.logger.Warn().Err(err).Msgf("brodcasting event %s has failed", event.CONTROL_RELEASE)
+		h.logger.Warn().Err(err).Msgf("broadcasting event %s has failed", event.CONTROL_RELEASE)
 		return err
 	}
 
@@ -39,12 +38,12 @@ func (h *MessageHandler) controlRequest(id string, session types.Session) error 
 		h.sessions.SetHost(id)
 
 		// let everyone know
-		if err := h.sessions.Brodcast(
+		if err := h.sessions.Broadcast(
 			message.Control{
 				Event: event.CONTROL_LOCKED,
 				ID:    id,
 			}, nil); err != nil {
-			h.logger.Warn().Err(err).Msgf("brodcasting event %s has failed", event.CONTROL_LOCKED)
+			h.logger.Warn().Err(err).Msgf("broadcasting event %s has failed", event.CONTROL_LOCKED)
 			return err
 		}
 
@@ -93,13 +92,13 @@ func (h *MessageHandler) controlGive(id string, session types.Session, payload *
 	h.sessions.SetHost(payload.ID)
 
 	// let everyone know
-	if err := h.sessions.Brodcast(
+	if err := h.sessions.Broadcast(
 		message.ControlTarget{
 			Event:  event.CONTROL_GIVE,
 			ID:     id,
 			Target: payload.ID,
 		}, nil); err != nil {
-		h.logger.Warn().Err(err).Msgf("brodcasting event %s has failed", event.CONTROL_LOCKED)
+		h.logger.Warn().Err(err).Msgf("broadcasting event %s has failed", event.CONTROL_LOCKED)
 		return err
 	}
 
@@ -113,6 +112,17 @@ func (h *MessageHandler) controlClipboard(id string, session types.Session, payl
 		return nil
 	}
 
-	xorg.WriteClipboard(payload.Text)
+	h.remote.WriteClipboard(payload.Text)
+	return nil
+}
+
+func (h *MessageHandler) controlKeyboard(id string, session types.Session, payload *message.Keyboard) error {
+	// check if session is host
+	if !h.sessions.IsHost(id) {
+		h.logger.Debug().Str("id", id).Msg("is not the host")
+		return nil
+	}
+
+	h.remote.SetKeyboardLayout(payload.Layout)
 	return nil
 }

@@ -12,11 +12,6 @@ func (h *MessageHandler) SessionCreated(id string, session types.Session) error 
 		return err
 	}
 
-	// send screen current resolution
-	if err := h.screenResolution(id, session); err != nil {
-		return err
-	}
-
 	if session.Admin() {
 		// send screen configurations if admin
 		if err := h.screenConfigurations(id, session); err != nil {
@@ -37,6 +32,11 @@ func (h *MessageHandler) SessionConnected(id string, session types.Session) erro
 		return err
 	}
 
+	// send screen current resolution
+	if err := h.screenResolution(id, session); err != nil {
+		return err
+	}
+
 	// tell session there is a host
 	host, ok := h.sessions.GetHost()
 	if ok {
@@ -50,12 +50,12 @@ func (h *MessageHandler) SessionConnected(id string, session types.Session) erro
 	}
 
 	// let everyone know there is a new session
-	if err := h.sessions.Brodcast(
+	if err := h.sessions.Broadcast(
 		message.Member{
 			Event:  event.MEMBER_CONNECTED,
 			Member: session.Member(),
 		}, nil); err != nil {
-		h.logger.Warn().Err(err).Msgf("brodcasting event %s has failed", event.CONTROL_RELEASE)
+		h.logger.Warn().Err(err).Msgf("broadcasting event %s has failed", event.CONTROL_RELEASE)
 		return err
 	}
 
@@ -66,21 +66,21 @@ func (h *MessageHandler) SessionDestroyed(id string) error {
 	// clear host if exists
 	if h.sessions.IsHost(id) {
 		h.sessions.ClearHost()
-		if err := h.sessions.Brodcast(message.Control{
+		if err := h.sessions.Broadcast(message.Control{
 			Event: event.CONTROL_RELEASE,
 			ID:    id,
 		}, nil); err != nil {
-			h.logger.Warn().Err(err).Msgf("brodcasting event %s has failed", event.CONTROL_RELEASE)
+			h.logger.Warn().Err(err).Msgf("broadcasting event %s has failed", event.CONTROL_RELEASE)
 		}
 	}
 
 	// let everyone know session disconnected
-	if err := h.sessions.Brodcast(
+	if err := h.sessions.Broadcast(
 		message.MemberDisconnected{
 			Event: event.MEMBER_DISCONNECTED,
 			ID:    id,
 		}, nil); err != nil {
-		h.logger.Warn().Err(err).Msgf("brodcasting event %s has failed", event.MEMBER_DISCONNECTED)
+		h.logger.Warn().Err(err).Msgf("broadcasting event %s has failed", event.MEMBER_DISCONNECTED)
 		return err
 	}
 
